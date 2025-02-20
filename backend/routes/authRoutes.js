@@ -2,7 +2,9 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const blacklist = require('../config/blacklist');
 const authenticateToken = require('../middlewares/authMiddleware');
+
 
 const router = express.Router();
 const secretKey = process.env.JWT_SECRET || 'chave-secreta';
@@ -67,4 +69,22 @@ router.get('/profile', authenticateToken, (req, res) => {
   res.json({ message: 'Acesso autorizado!', user: req.user });
 });
 
+
+// Rota de Logout
+router.post('/logout', (req, res) => {
+    const token = req.header('Authorization');
+  
+    if (!token) {
+      return res.status(401).json({ message: 'Token não fornecido' });
+    }
+  
+    // Remove "Bearer " se estiver no início do token
+    const formattedToken = token.replace('Bearer ', '');
+  
+    // Adiciona o token à blacklist
+    blacklist.add(formattedToken);
+  
+    res.status(200).json({ message: 'Logout realizado com sucesso' });
+  });
+  
 module.exports = router;
