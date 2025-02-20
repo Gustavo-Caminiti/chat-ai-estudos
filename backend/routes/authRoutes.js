@@ -1,61 +1,70 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const router = express.Router();
+const authenticateToken = require('../middlewares/authMiddleware');
 
-// Rota de cadastro
-router.post('/register', (req, res) => {
+const router = express.Router();
+const secretKey = process.env.JWT_SECRET || 'chave-secreta';
+
+// Rota de registro de usuário (já existente)
+router.post('/register', async (req, res) => {
   const { username, password, email } = req.body;
 
-  // Verifica se o usuário já existe
-  User.findUserByUsername(username, (err, result) => {
-    if (result.length > 0) {
-      return res.status(400).json({ message: 'Usuário já existe' });
+  if (!username || !password || !email) {
+    return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
+  }
+
+  // Hash da senha antes de salvar
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  User.createUser(username, hashedPassword, email, (err, result) => {
+    if (err) {
+      return res.status(500).json({ message: 'Erro ao registrar usuário.', error: err });
     }
-
-    // Criptografa a senha antes de salvar
-    bcrypt.hash(password, 10, (err, hashedPassword) => {
-      if (err) {
-        return res.status(500).json({ message: 'Erro ao criptografar senha' });
-      }
-
-      // Cria o novo usuário
-      User.createUser(username, hashedPassword, email, (err, result) => {
-        if (err) {
-          return res.status(500).json({ message: 'Erro ao criar usuário' });
-        }
-        res.status(201).json({ message: 'Usuário criado com sucesso' });
-      });
-    });
+    res.status(201).json({ message: 'Usuário registrado com sucesso!' });
   });
 });
 
-// Rota de login
+// Rota para login (NOVA)
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
 
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Usuário e senha são obrigatórios.' });
+  }
+
   User.findUserByUsername(username, (err, result) => {
+    if (err) {
+      return res.status(500).json({ message: 'Erro ao buscar usuário.', error: err });
+    }
+
     if (result.length === 0) {
-      return res.status(400).json({ message: 'Usuário não encontrado' });
+      return res.status(401).json({ message: 'Usuário ou senha inválidos.' });
     }
 
     const user = result[0];
 
-    // Verifica a senha
     bcrypt.compare(password, user.password, (err, isMatch) => {
       if (err) {
-        return res.status(500).json({ message: 'Erro ao comparar senha' });
-      }
-      if (!isMatch) {
-        return res.status(400).json({ message: 'Senha incorreta' });
+        return res.status(500).json({ message: 'Erro ao comparar senhas.', error: err });
       }
 
-      // Gera o token JWT
-      const token = jwt.sign({ id: user.id }, 'secrectkey', { expiresIn: '1h' });
-      res.status(200).json({ message: 'Login bem-sucedido', token });
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Usuário ou senha inválidos.' });
+      }
+
+      // Criando o token JWT
+      const token = jwt.sign({ id: user.id, username: user.username }, secretKey, { expiresIn: '1h' });
+
+      res.status(200).json({ message: 'Login bem-sucedido!', token });
     });
   });
+});
+
+// Rota protegida para buscar perfil do usuário
+router.get('/profile', authenticateToken, (req, res) => {
+  res.json({ message: 'Acesso autorizado!', user: req.user });
 });
 
 module.exports = router;
