@@ -30,6 +30,9 @@ router.post('/register', async (req, res) => {
 
 // Rota para login (NOVA)
 router.post('/login', (req, res) => {
+    console.log('Rota de login acessada!');  
+    console.log('Rota de login acessada!');  // Mostra quando a rota de login for acessada
+    console.log('Corpo da requisição:', req.body);  // Mostra o que foi enviado no corpo da requisição
   const { username, password } = req.body;
 
   if (!username || !password) {

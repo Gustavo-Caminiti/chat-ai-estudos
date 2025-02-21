@@ -5,6 +5,7 @@ const blacklist = require('../config/blacklist');  // Importa a blacklist
 // Middleware para verificar se o usuário está autenticado
 const authenticateToken = (req, res, next) => {
   const token = req.header('Authorization');
+  console.log('Token recebido:', token);
 
   if (!token) {
     return res.status(401).json({ message: 'Acesso negado. Nenhum token fornecido.' });
